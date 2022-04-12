@@ -1,44 +1,27 @@
 import RPi.GPIO as GPIO
 import time
 
-in1 = 16
-in2 = 18
-
-GPIO.setmode(GPIO.BOARD)
-GPIO.setup(in1, GPIO.OUT)
-GPIO.setup(in2, GPIO.OUT)
-
-GPIO.output(in1, False)
-GPIO.output(in2, False)
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(23, GPIO.OUT)
+GPIO.setup(24, GPIO.OUT)
 
 try:
     while True:
       for x in range(5):
-            GPIO.output(in1, True)
+            GPIO.output(23, True)
+            time.sleep(0.5)
+            GPIO.output(23, False)
+
+
+            GPIO.output(24, True)
             time.sleep(0.1)
-            GPIO.output(in1, False)
-            GPIO.output(in2, True)
+            GPIO.output(24, False)
+            GPIO.output(24, True)
             time.sleep(0.1)
-            GPIO.output(in2, False)
-      
-      GPIO.output(in1,True)
-      GPIO.output(in2,True)
-
-      for x in range(4):
-            GPIO.output(in1, True)
-            time.sleep(0.05)
-            GPIO.output(in1, False)
-            time.sleep(0.05)
-      GPIO.output(in1,True)
-
-      for x in range(4):
-            GPIO.output(in2, True)
-            time.sleep(0.05)
-            GPIO.output(in2, False)
-            time.sleep(0.05)
-      GPIO.output(in2,True)
-
-
+            GPIO.output(24, False)
+            GPIO.output(24, True)
+            time.sleep(0.1)
+            GPIO.output(24, False)
 
 except KeyboardInterrupt:
     GPIO.cleanup()

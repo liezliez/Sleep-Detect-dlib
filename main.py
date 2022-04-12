@@ -1,90 +1,68 @@
-# library
-from imutils.video import VideoStream
+# import package
 from imutils import face_utils
+from imutils.video import VideoStream
 import argparse
 import imutils
 import time
 import dlib
 import cv2
-from scipy.spatial import distance as dist
+from hitungEAR import eye_aspect_ratio, final_ear
 
-# argument parser untuk command line shape-predictor yang dipakai
+# argument parser untuk model yang dipakai
 ap = argparse.ArgumentParser()
 ap.add_argument("-p", "--sp", required=True,
-	help="path to facial landmark predictor")
+	help="Model yang dipakai")
 args = vars(ap.parse_args())
 
-# fungsi hitung EAR
+print("Memulai Program...")
 
-def eye_aspect_ratio(eye):
-    A = dist.euclidean(eye[1], eye[5])
-    B = dist.euclidean(eye[2], eye[4])
-
-    C = dist.euclidean(eye[0], eye[3])
-
-    ear = (A + B) / (2.0 * C)
-
-    return ear
-
-def final_ear(shape):
-	#Full landmark koordinat
-    (lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS["left_eye"]
-    (rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
-    leftEye = shape[lStart:lEnd]
-    rightEye = shape[rStart:rEnd]
-
-	# custom model
-    # leftEye = shape[0:6]
-    # rightEye = shape[6:12]
-
-	
-
-    leftEAR = eye_aspect_ratio(leftEye)
-    rightEAR = eye_aspect_ratio(rightEye)
-
-    ear = (leftEAR + rightEAR) / 2.0
-    return (ear, leftEye, rightEye)
-
-print("[INFO] inisiasi Program...")
-
-# inisiasi face detector dari dlib
+# inisiasi face detector
+# inisiasi face detector haarcascade opencv
 detector = cv2.CascadeClassifier("haarcascade_frontalface_default.xml") 
+
+# inisiasi face detector bawaan dlib
 # detector = dlib.get_frontal_face_detector()
+
+# inisiasi shape predictor untuk facial landmark dari dlib
 predictor = dlib.shape_predictor(args["sp"])
 
 # inisiasi video camera
-
 vs = VideoStream(src=0).start()
 
-# vs = VideoStream(src)
-# time.sleep(2.0)
-
+# counter frame untuk pengguna dinyatakan tertidur
 COUNTER_EAR = 30
-EYE_AR_THRESH = 0.27
+
+# treshold ear untuk pengguna dinyatakan telah menutup matanya
+EYE_AR_THRESH = 0.25
+
+# inisiasi counter
 COUNTER = 0
 
-# cap = cv2.VideoCapture('test.mp4')
-
-
-# loop frame dari videostream kamera, false condition = q ditekan
+# loop frame dari videostream kamera, false condition = Q (Keyboard interupt)
 while True:
-  # video input , convert grayscale
+  # read video input untuk dijadikan frame lalu convert grayscale
 	frame = vs.read()
 	frame = imutils.resize(frame, width=720)
+
+  # convert grayscale opencv
 	gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-  # deteksi wajah
+  # deteksi wajah menggunakan detector, koordinat akan masuk kedalam variable rects
 	rects = detector.detectMultiScale(gray, scaleFactor=1.1, 
 		minNeighbors=5, minSize=(30, 30),
 		flags=cv2.CASCADE_SCALE_IMAGE)
 	checkTuple = len(rects)
 
-	# terdeteksi wajah
+  # terdeteksi wajah (tuple null jika tidak terdeteksi wajah)
 	if checkTuple != 0:
 		for (x, y, w, h) in rects:
 			rect = dlib.rectangle(int(x), int(y), int(x + w),int(y + h))
 
-		# deteksi landmark wajah
+			# bikin bounding box face
+			(x, y, w, h) = face_utils.rect_to_bb(rect)
+			cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1)
+
+		# deteksi landmark wajah, dirubah ke numpy
 			shape = predictor(gray, rect)
 			shape = face_utils.shape_to_np(shape)
 
@@ -104,13 +82,13 @@ while True:
 			if ear < EYE_AR_THRESH:
 				COUNTER += 1
 				if COUNTER >= COUNTER_EAR:
-					cv2.putText(frame, "Tertidur", (10, 30),
+					cv2.putText(frame, "Tertidur", (500, 30),
 								cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 		# kondisi 2 (Terjaga)	
 			else:
 				COUNTER = 0
 			
-			cv2.putText(frame, "Nilai EAR : {:.2f}".format(ear), (300, 30),
+			cv2.putText(frame, "Nilai EAR : {:.2f}".format(ear), (500, 30),
 						cv2.FONT_HERSHEY_COMPLEX , 0.7, (0, 0, 255), 2)
 	# kondisi 3 (Tidak Terdeteksi)
 	else:
@@ -118,19 +96,6 @@ while True:
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 		COUNTER += 1
 
-#   # loop face detection
-# 	for rect in rects:
-
-# 		# bikin bounding box
-# 		(x, y, w, h) = face_utils.rect_to_bb(rect)
-# 		cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1)
-# 	# dari dlib shape predictor, masukin koordinat facial landmark ke NumPy array	
-# 		shape = predictor(gray, rect)
-# 		shape = face_utils.shape_to_np(shape)
-		
-#   # loop untuk dlib shape
-# 		for (sX, sY) in shape:
-# 			cv2.circle(frame, (sX, sY), 1, (0, 255, 0), -1)
   # frame
 	cv2.imshow("Frame", frame)
 	key = cv2.waitKey(1) & 0xFF
