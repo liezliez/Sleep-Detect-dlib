@@ -76,14 +76,11 @@ while True:
 			rightEyeHull = cv2.convexHull(rightEye)
 			cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 0)
 			cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 0)
-			print(COUNTER)
 
 		# kondisi 1 (Tertidur)
 			if ear < EYE_AR_THRESH:
 				COUNTER += 1
-				if COUNTER >= COUNTER_EAR:
-					cv2.putText(frame, "Tertidur", (500, 30),
-								cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+				
 		# kondisi 2 (Terjaga)	
 			else:
 				COUNTER = 0
@@ -95,7 +92,13 @@ while True:
 		cv2.putText(frame, "Tidak Terdeteksi", (500, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 		COUNTER += 1
-
+	
+	cv2.putText(frame, "counter : {:.2f}".format(COUNTER), (500, 60),
+						cv2.FONT_HERSHEY_COMPLEX , 0.7, (0, 0, 255), 2)
+	print(COUNTER)
+	if COUNTER >= COUNTER_EAR:
+					cv2.putText(frame, "Tertidur", (200, 30),
+								cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
   # frame
 	cv2.imshow("Frame", frame)
 	key = cv2.waitKey(1) & 0xFF
