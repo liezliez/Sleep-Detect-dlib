@@ -8,6 +8,12 @@ import dlib
 import cv2
 from hitungEAR import eye_aspect_ratio, nilai_ear
 import numpy as np
+import RPi.GPIO as GPIO
+
+# setup relay
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(23, GPIO.OUT)
+GPIO.setup(24, GPIO.OUT)
 
 # argument parser untuk model yang dipakai
 ap = argparse.ArgumentParser()
@@ -125,6 +131,8 @@ while True:
 	  # jika Average melebihi treshold, maka pengguna dinyatakan telah tertidur/meninggalkan alat (tidak terdeteksi sedang menggunakan alat)
 		if avg < EYE_AR_THRESH :
 			print("MATI (EAR MELEBIHI TRESHOLD)")
+			GPIO.output(23, True)
+			GPIO.output(24, True)
 			nilai = 0
 			counter_frame = 1
 			start_time = t.time()
@@ -143,3 +151,5 @@ while True:
 # destroy
 cv2.destroyAllWindows()
 vs.stop()
+GPIO.output(23, False)
+GPIO.output(24, False)
