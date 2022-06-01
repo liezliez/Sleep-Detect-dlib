@@ -8,22 +8,24 @@ import dlib
 import cv2
 from hitungEAR import eye_aspect_ratio, nilai_ear
 import numpy as np
-import RPi.GPIO as GPIO
-
-# setup relay
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(23, GPIO.OUT)
-GPIO.setup(24, GPIO.OUT)
+import os.path
 
 # argument parser untuk model yang dipakai
-ap = argparse.ArgumentParser()
-ap.add_argument("-p", "--sp", required=True,
-	help="Model yang dipakai")
-args = vars(ap.parse_args())
+# ap = argparse.ArgumentParser()
+# ap.add_argument("-p", "--sp", required=True,
+# 	help="Model yang dipakai")
+# args = vars(ap.parse_args())
 
-print("Memulai Program...")
+# print("Memulai Program...")
 
-# inisiasi face detector
+# inisiasi RPI GPIO untuk relay
+# import RPi.GPIO as GPIO
+# import time
+
+# GPIO.setmode(GPIO.BCM)
+# GPIO.setup(23, GPIO.OUT)
+# GPIO.setup(24, GPIO.OUT)
+
 # inisiasi face detector haarcascade opencv
 detector = cv2.CascadeClassifier("haarcascade_frontalface_default.xml") 
 
@@ -31,8 +33,8 @@ detector = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 # detector = dlib.get_frontal_face_detector()
 
 # inisiasi shape predictor untuk facial landmark dari dlib
-predictor = dlib.shape_predictor(args["sp"])
-
+# predictor = dlib.shape_predictor(args["sp"])
+predictor = dlib.shape_predictor("Model (4).dat")
 # inisiasi video camera
 vs = VideoStream(src=0).start()
 
@@ -61,7 +63,7 @@ while True:
 
   # read video input untuk dijadikan frame lalu convert grayscale
 	frame = vs.read()
-	frame.flags.writeable = False
+	# frame.flags.writeable = False
 	frame.flags.writeable = True
 
   # convert grayscale opencv
@@ -116,7 +118,7 @@ while True:
 		cv2.putText(frame, text, (250,250), cv2.FONT_HERSHEY_COMPLEX, 0.7, (0, 0, 255), 2)
 		counter_mati += 1	
 	
-	cv2.putText(frame, "counter mati : {:.0f}".format(counter_mati), (300, 60),
+	cv2.putText(frame, "counter : {:.0f}".format(counter_mati), (300, 60),
 						cv2.FONT_HERSHEY_COMPLEX , 0.7, (0, 0, 255), 2)
 
   # Trigger
@@ -130,19 +132,26 @@ while True:
 		print(avg)
 	  # jika Average melebihi treshold, maka pengguna dinyatakan telah tertidur/meninggalkan alat (tidak terdeteksi sedang menggunakan alat)
 		if avg < EYE_AR_THRESH :
+			timestr = t.strftime("%Y%m%d-%H%M%S")
 			print("MATI (EAR MELEBIHI TRESHOLD)")
-			GPIO.output(23, True)
-			GPIO.output(24, True)
+			cv2.imwrite("./hasil/frame%s.jpg" % timestr, frame )
+			# os.system("irsend SEND_ONCE --count=4 Sony_RM-ED035 KEY_SLEEP")
+			# GPIO.output(23, False)
+			# GPIO.output(23, True)
+			input("Reset tekan enter")
+			# os.system("irsend SEND_ONCE --count=4 Sony_RM-ED035 KEY_SLEEP")
+			# GPIO.output(23, False)
 			nilai = 0
 			counter_frame = 1
 			start_time = t.time()
+
 		else :
 			nilai = 0
 			counter_frame = 1
 			start_time = t.time()
 			
   # tampilkan frame
-	cv2.imshow("Frame", frame)
+	cv2.imshow("Kamera", frame)
 	key = cv2.waitKey(1) & 0xFF
   # q keluar
 	if key == ord("q"):
@@ -151,5 +160,3 @@ while True:
 # destroy
 cv2.destroyAllWindows()
 vs.stop()
-GPIO.output(23, False)
-GPIO.output(24, False)

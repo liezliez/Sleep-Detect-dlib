@@ -1,12 +1,10 @@
 # import package
 from imutils import face_utils
 from imutils.video import VideoStream
-import argparse
 import time as t
 import dlib
 import cv2
 from hitungEAR import eye_aspect_ratio, nilai_ear
-import os
 
 # argument parser untuk model yang dipakai
 # ap = argparse.ArgumentParser()
@@ -18,7 +16,6 @@ print("Memulai Program...")
 
 # inisiasi RPI GPIO untuk relay
 # import RPi.GPIO as GPIO
-import time
 
 # GPIO.setmode(GPIO.BCM)
 # GPIO.setup(23, GPIO.OUT)
@@ -132,7 +129,8 @@ try:
 		# jika Average melebihi treshold, maka pengguna dinyatakan telah tertidur/meninggalkan alat (tidak terdeteksi sedang menggunakan alat)
 			if avg < EYE_AR_THRESH :
 				print("MATI (EAR MELEBIHI TRESHOLD)")
-
+				timestr = t.strftime("%Y%m%d-%H%M%S")
+				cv2.imwrite("./hasil/frame%s.jpg" % timestr, frame )
 				# os.system("irsend SEND_ONCE --count=4 Sony_RM-ED035 KEY_SLEEP")
 				# GPIO.output(23, True)
 				input("Reset tekan enter")
