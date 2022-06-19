@@ -147,7 +147,7 @@ try:
 				print("MATI")
 
 				# Simpan log dan frame terakhir ketika sistem dimatikan
-				cv2.putText(frame, "DIMATIKAN", (250, 250),
+				cv2.putText(frame, "DIMATIKAN", (250, 300),
 					cv2.FONT_HERSHEY_COMPLEX , 0.7, (0, 0, 255), 2)
 				cv2.imwrite("./hasil/frame%s.jpg" % timestr, frame )
 				lgr.info(avg)
