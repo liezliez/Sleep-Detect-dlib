@@ -1,10 +1,14 @@
 # import package
+from tkinter import N
 from imutils import face_utils
 from imutils.video import VideoStream
 import time as t
 import dlib
 import cv2
 from hitungEAR import eye_aspect_ratio, nilai_ear
+import numpy as np
+import logging
+
 
 # argument parser untuk model yang dipakai
 # ap = argparse.ArgumentParser()
@@ -20,6 +24,18 @@ print("Memulai Program...")
 # GPIO.setmode(GPIO.BCM)
 # GPIO.setup(23, GPIO.OUT)
 # GPIO.setup(24, GPIO.OUT)
+
+# Untuk logger
+lgr = logging.getLogger('Main.py')
+lgr.setLevel(logging.DEBUG) # log all escalated at and above DEBUG
+# add a file handler
+fh = logging.FileHandler('./hasil/log-tertidur.csv')
+fh.setLevel(logging.DEBUG) # ensure all messages are logged to file
+
+# formatter handler
+frmt = logging.Formatter('%(asctime)s,%(message)s')
+fh.setFormatter(frmt)
+lgr.addHandler(fh)
 
 # inisiasi face detector haarcascade opencv
 detector = cv2.CascadeClassifier("haarcascade_frontalface_default.xml") 
@@ -37,7 +53,7 @@ vs = VideoStream(src=0).start()
 COUNTER_EAR = 30
 
 # treshold ear untuk pengguna dinyatakan telah menutup matanya
-EYE_AR_THRESH = 0.222
+EYE_AR_THRESH = 0.235
 
 DETIK = 5
 TIDAK_TERDETEKSI_TRESH = 20
@@ -124,14 +140,17 @@ try:
 			# jika wajah tidak terdeteksi pada frame pertama
 				avg = nilai/counter_frame
 			except:
-				print("avg 0")
+				print("Wajah tidak terdeteksi (EAR 0)")
 			print(avg)
 		# jika Average melebihi treshold, maka pengguna dinyatakan telah tertidur/meninggalkan alat (tidak terdeteksi sedang menggunakan alat)
 			if avg < EYE_AR_THRESH :
-				print("MATI (EAR MELEBIHI TRESHOLD)")
-				timestr = t.strftime("%Y%m%d-%H%M%S")
+				timestr = t.strftime("%Y%m%d %H%M%S")
+				print("MATI")
 				cv2.imwrite("./hasil/frame%s.jpg" % timestr, frame )
+				# Input nilai AVG ke logger
+				lgr.info(avg)
 				# os.system("irsend SEND_ONCE --count=4 Sony_RM-ED035 KEY_SLEEP")
+				# GPIO.output(23, False)
 				# GPIO.output(23, True)
 				input("Reset tekan enter")
 				# os.system("irsend SEND_ONCE --count=4 Sony_RM-ED035 KEY_SLEEP")
@@ -139,7 +158,6 @@ try:
 				nilai = 0
 				counter_frame = 1
 				start_time = t.time()
-
 
 			else :
 				nilai = 0
