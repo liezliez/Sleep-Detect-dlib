@@ -8,6 +8,7 @@ import cv2
 from hitungEAR import eye_aspect_ratio, nilai_ear
 import numpy as np
 import logging
+import os
 
 # argument parser untuk model yang dipakai
 # ap = argparse.ArgumentParser()
@@ -18,11 +19,11 @@ import logging
 print("Memulai Program...")
 
 # inisiasi RPI GPIO untuk relay
-# import RPi.GPIO as GPIO
-# import time
+import RPi.GPIO as GPIO
+import time
 
-# GPIO.setmode(GPIO.BCM)
-# GPIO.setup(23, GPIO.OUT)
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(23, GPIO.OUT)
 
 # Untuk logger
 lgr = logging.getLogger('Main.py')
@@ -83,8 +84,7 @@ try:
 
 	# deteksi wajah menggunakan detector, koordinat akan masuk kedalam variable rects
 		rects = detector.detectMultiScale(abu, scaleFactor=1.1,
-		# minSize 120, mendeteksi wajah paling jauh sekitar 3 meter dari kamera
-		# lebih dari 3 meter, asepect ration mulai tidak akurat
+		# minSize 120, mendeteksi wajah paling jauh 3 meter dari kamera
 			minNeighbors=7, minSize=(120, 120),
 			flags=cv2.CASCADE_SCALE_IMAGE)
 
@@ -98,11 +98,11 @@ try:
 			for (x, y, w, h) in rects:
 				rect = dlib.rectangle(int(x), int(y), int(x + w),int(y + h))
 
-				# bikin bounding box face
+				# Dibuat bounding box wajah
 				(x, y, w, h) = face_utils.rect_to_bb(rect)
 				cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1)
 
-			# deteksi landmark wajah, dirubah ke numpy
+			# Deteksi landmark wajah, dirubah ke numpy
 				shape = predictor(abu, rect)
 				shape = face_utils.shape_to_np(shape)
 
@@ -131,29 +131,38 @@ try:
 		cv2.putText(frame, "Nilai AVG : {:.2f}".format(avg), (300, 60),
 			cv2.FONT_HERSHEY_COMPLEX , 0.7, (0, 0, 255), 2)
 	# Trigger
-	# jika waktu yang telah dihabiskan telah melebihi waktu DETIK untuk pengecekan, maka hitung Average dari nilai total EAR terhadap frame
+
+	# jika waktu yang telah dihabiskan telah melebihi variabel DETIK untuk pengecekan, maka hitung Average dari nilai total EAR terhadap frame
 		if elapsed_time > DETIK:
 			try:
-			# jika wajah tidak terdeteksi pada frame pertama
+			# Exception jika wajah tidak terdeteksi pada frame pertama
 				avg = nilai/counter_frame
 			except:
 				print("Wajah tidak terdeteksi (EAR 0)")
 			print(avg)
 		# jika Average melebihi treshold, maka pengguna dinyatakan telah tertidur/meninggalkan alat (tidak terdeteksi sedang menggunakan alat)
 			if avg < EYE_AR_THRESH :
+				# Catat waktu dimatikan
 				timestr = t.strftime("%Y%m%d %H%M%S")
 				print("MATI")
+
+				# Simpan log dan frame terakhir ketika sistem dimatikan
 				cv2.putText(frame, "DIMATIKAN", (250, 250),
 					cv2.FONT_HERSHEY_COMPLEX , 0.7, (0, 0, 255), 2)
 				cv2.imwrite("./hasil/frame%s.jpg" % timestr, frame )
-				# Input nilai AVG ke logger
 				lgr.info(avg)
-				# os.system("irsend SEND_ONCE --count=4 Sony_RM-ED035 KEY_SLEEP")
-				# GPIO.output(23, False)
-				# GPIO.output(23, True)
+
+				# Matikan TV dan Relay
+				os.system("irsend SEND_ONCE --count=4 Sony_RM-ED035 KEY_SLEEP")
+				GPIO.output(23, True)
+
 				input("Reset tekan enter")
-				# os.system("irsend SEND_ONCE --count=4 Sony_RM-ED035 KEY_SLEEP")
-				# GPIO.output(23, False)
+				
+				# Hidupkan kembali TV dan Relay
+				os.system("irsend SEND_ONCE --count=4 Sony_RM-ED035 KEY_SLEEP")
+				GPIO.output(23, False)
+
+				# Reset variabel
 				nilai = 0
 				counter_frame = 1
 				start_time = t.time()
