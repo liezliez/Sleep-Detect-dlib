@@ -1,70 +1,45 @@
-# import package
-from tkinter import N
-from imutils import face_utils
+# -------------------- import package --------------------
+
 from imutils.video import VideoStream
 import time as t
-import dlib
 import cv2
-from hitungEAR import eye_aspect_ratio, nilai_ear
-import numpy as np
 import logging
-import os
 
-# argument parser untuk model yang dipakai
-# ap = argparse.ArgumentParser()
-# ap.add_argument("-p", "--sp", required=True,
-# 	help="Model yang dipakai")
-# args = vars(ap.parse_args())
+from hitungEAR import nilai_ear
+from deteksiWajah import deteksiWajah
+from deteksiLandmark import deteksiLandmark
+# Untuk di Raspberry Pi
+# from aktuator import hidupkan, matikan
 
+# -------------------- Program dimulai --------------------
 print("Memulai Program...")
 
-# inisiasi RPI GPIO untuk relay
-import RPi.GPIO as GPIO
-import time
-
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(23, GPIO.OUT)
-
-# Untuk logger
+# -------------------- logger --------------------
 lgr = logging.getLogger('Main.py')
 lgr.setLevel(logging.DEBUG) # log all escalated at and above DEBUG
+
 # add a file handler
 fh = logging.FileHandler('./hasil/log-tertidur.csv')
 fh.setLevel(logging.DEBUG) # ensure all messages are logged to file
-
 frmt = logging.Formatter('%(asctime)s,%(message)s')
 fh.setFormatter(frmt)
 
 # add the Handler to the logger
 lgr.addHandler(fh)
 
-# inisiasi face detector haarcascade opencv
-detector = cv2.CascadeClassifier("haarcascade_frontalface_default.xml") 
-
-# inisiasi face detector bawaan dlib
-# detector = dlib.get_frontal_face_detector()
-
-# inisiasi shape predictor untuk facial landmark dari dlib
-# predictor = dlib.shape_predictor(args["sp"])
-predictor = dlib.shape_predictor("Model (4).dat")
-# inisiasi video camera
+# -------------------- inisiasi camera --------------------
 vs = VideoStream(src=0).start()
 
-# counter frame untuk pengguna dinyatakan tertidur
-COUNTER_EAR = 30
+# -------------------- constant --------------------
 
 # treshold ear untuk pengguna dinyatakan telah menutup matanya
-EYE_AR_THRESH = 0.235
-
-DETIK = 5
-TIDAK_TERDETEKSI_TRESH = 20
+EAR_Treshold = 0.235
+WAKTU_PENGECEKAN = 5
 
 # inisiasi nilai
-counter_mati = 0
 counter_frame = 0
-avg = 0
-nilai= 0
-tidak_terdeteksi = False
+avg_ear = 0
+total_ear = 0
 
 start_time = t.time()
 
@@ -74,113 +49,119 @@ try:
 		current_time = t.time()
 		elapsed_time = current_time - start_time
 
-	# read video input untuk dijadikan frame lalu convert grayscale
+	# read video input, ubah ke grayscale
 		frame = vs.read()
-		# frame.flags.writeable = False
-		frame.flags.writeable = True
+		frame_abu = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-	# convert grayscale opencv
-		abu = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+	# -------------------- deteksi wajah --------------------
+		rects = deteksiWajah(frame_abu)
 
-	# deteksi wajah menggunakan detector, koordinat akan masuk kedalam variable rects
-		rects = detector.detectMultiScale(abu, scaleFactor=1.1,
-		# minSize 120, mendeteksi wajah paling jauh 3 meter dari kamera
-			minNeighbors=7, minSize=(120, 120),
-			flags=cv2.CASCADE_SCALE_IMAGE)
-
-	# terdeteksi wajah (tuple null jika tidak terdeteksi wajah)
+	# -------------------- jika terdeteksi wajah (tuple tidak null) --------------------
 		if len(rects) != 0:
 
-		# reset pada counter ketika wajah terdeteksi kembali
-			tidak_terdeteksi = False
-			counter_mati = 0
+		# -------------------- deteksi landmark --------------------
+			shape = deteksiLandmark(rects, frame_abu)
 
-			for (x, y, w, h) in rects:
-				rect = dlib.rectangle(int(x), int(y), int(x + w),int(y + h))
+		# hitung EAR
+			eye = nilai_ear(shape)
 
-				# Dibuat bounding box wajah
-				(x, y, w, h) = face_utils.rect_to_bb(rect)
-				cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1)
+		# untuk GUI openCV
 
-			# Deteksi landmark wajah, dirubah ke numpy
-				shape = predictor(abu, rect)
-				shape = face_utils.shape_to_np(shape)
+			ear = eye[0]
+			leftEye = eye [1]
+			rightEye = eye[2]
 
-			# hitung EAR
-				eye = nilai_ear(shape)
-				ear = eye[0]
-				leftEye = eye [1]
-				rightEye = eye[2]
+		# tampilkan hasil deteksi di GUI
+			leftEyeHull = cv2.convexHull(leftEye)
+			rightEyeHull = cv2.convexHull(rightEye)
+			cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 0)
+			cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 0)
 
-				leftEyeHull = cv2.convexHull(leftEye)
-				rightEyeHull = cv2.convexHull(rightEye)
-				cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 0)
-				cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 0)
+		# hitung average ear dari waktu yang ditentukan
+			counter_frame += 1
+			total_ear = total_ear + ear
 
-			# hitung average ear dari waktu yang ditentukan
-				counter_frame += 1
-				nilai = nilai + ear
+		# tampilkan hasil landmark di GUI
+			cv2.putText(frame, "Nilai EAR : {:.2f}".format(ear), (300, 30),
+									cv2.FONT_HERSHEY_COMPLEX , 0.7, (0, 0, 255), 2)
 		
-			# kondisi 2 (Terjaga)	
-				cv2.putText(frame, "Nilai EAR : {:.2f}".format(ear), (300, 30),
-										cv2.FONT_HERSHEY_COMPLEX , 0.7, (0, 0, 255), 2)
-			# kondisi 3 (Tidak Terdeteksi)
+	# -------------------- jika wajah tidak terdeteksi --------------------
 		else:
+
+		# tampilkan text "tidak terdeteksi" GUI
 			text = "Tidak Terdeteksi"
 			cv2.putText(frame, text, (250,250), cv2.FONT_HERSHEY_COMPLEX, 0.7, (0, 0, 255), 2)
-		cv2.putText(frame, "Nilai AVG : {:.2f}".format(avg), (300, 60),
-			cv2.FONT_HERSHEY_COMPLEX , 0.7, (0, 0, 255), 2)
-	# Trigger
 
-	# jika waktu yang telah dihabiskan telah melebihi variabel DETIK untuk pengecekan, maka hitung Average dari nilai total EAR terhadap frame
-		if elapsed_time > DETIK:
+	# tampilkan nilai rata-rata EAR dan elapsed time di GUI
+
+		cv2.putText(frame, "Nilai AVG : {:.2f}".format(avg_ear), (300, 60),
+			cv2.FONT_HERSHEY_COMPLEX , 0.7, (0, 0, 255), 2)
+		cv2.putText(frame, "elapsed time : {:.2f}".format(elapsed_time), (300, 90),
+			cv2.FONT_HERSHEY_COMPLEX , 0.7, (0, 0, 255), 2)
+	# -------------------- Trigger --------------------
+
+	# jika waktu yang telah dihabiskan telah melebihi waktu pengecekan, maka hitung rata-rata dari nilai total EAR terhadap frame
+
+		if elapsed_time > WAKTU_PENGECEKAN:
+		
+		# Console feedback
+			print("Avg EAR : ",avg_ear, " - Counter frame",counter_frame)
+
+		# Error handling frame pertama
 			try:
-			# Exception jika wajah tidak terdeteksi pada frame pertama
-				avg = nilai/counter_frame
+				avg_ear = total_ear/counter_frame
 			except:
+			# jika wajah tidak terdeteksi pada frame pertama
 				print("Wajah tidak terdeteksi (EAR 0)")
-			print(avg)
-		# jika Average melebihi treshold, maka pengguna dinyatakan telah tertidur/meninggalkan alat (tidak terdeteksi sedang menggunakan alat)
-			if avg < EYE_AR_THRESH :
-				# Catat waktu dimatikan
-				timestr = t.strftime("%Y%m%d %H%M%S")
+
+			
+
+		# jika Average melebihi treshold, maka pengguna dinyatakan telah tertidur/meninggalkan alat
+			if avg_ear < EAR_Treshold :
+			# console print MATI
 				print("MATI")
 
-				# Simpan log dan frame terakhir ketika sistem dimatikan
-				cv2.putText(frame, "DIMATIKAN", (250, 300),
+			# catat waktu dinyatakan tertidur
+				timestr = t.strftime("%Y%m%d %H%M%S")
+				cv2.putText(frame, "DIMATIKAN", (250, 250),
 					cv2.FONT_HERSHEY_COMPLEX , 0.7, (0, 0, 255), 2)
+
+			# simpan frame terakhir ketika sistem dimatikan
 				cv2.imwrite("./hasil/frame%s.jpg" % timestr, frame )
-				lgr.info(avg)
 
-				# Matikan TV dan Relay
-				os.system("irsend SEND_ONCE --count=4 Sony_RM-ED035 KEY_SLEEP")
-				GPIO.output(23, True)
+			# Input nilai rata-rata EAR terakhir ke logger
+				lgr.info(avg_ear)
+			
 
+			# Matikan alat elektronik
+				# matikan()
+
+			# menunggu masukan user untuk mereset sistem
 				input("Reset tekan enter")
-				
-				# Hidupkan kembali TV dan Relay
-				os.system("irsend SEND_ONCE --count=4 Sony_RM-ED035 KEY_SLEEP")
-				GPIO.output(23, False)
 
-				# Reset variabel
-				nilai = 0
+			# Hidupkan kembali alat elektronik
+				# hidupkan()
+
+			# Atur ulang variabel inisiasi
+				total_ear = 0
 				counter_frame = 1
 				start_time = t.time()
 
 			else :
-				nilai = 0
+				total_ear = 0
 				counter_frame = 1
 				start_time = t.time()
 				
-	# tampilkan frame
+	# OpenCV menampilkan frame pada window GUI
 		cv2.imshow("Kamera", frame)
 		key = cv2.waitKey(1) & 0xFF
-	# q keluar
+	# key q keluar dari window
 		if key == ord("q"):
 			break
 		# time.sleep(0.5)
-	# destroy
+# tutup program dan matikan kamera
 	cv2.destroyAllWindows()
 	vs.stop()
+# exit keyboard interrupt (CTRL + C)
 except KeyboardInterrupt:
 	pass

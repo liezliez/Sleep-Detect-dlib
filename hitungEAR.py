@@ -1,5 +1,5 @@
 # import package
-import os
+
 from imutils import face_utils
 from scipy.spatial import distance as dist
 # fungsi hitung EAR
